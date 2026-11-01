@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADB 手机优化助手</title>
+<style>
+  :root{
+    --bg:#f3f5fa; --panel:#ffffff; --panel2:#eef1f7; --line:#e3e8f0;
+    --txt:#1f2533; --sub:#687086; --brand:#2f6bff; --brand2:#7c5cff;
+    --ok:#16a06a; --warn:#c47d00; --err:#e0413e; --chip:#eef1f7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt)}
+  a{color:var(--brand)}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px 18px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700}
+  .logo .dot{width:12px;height:12px;border-radius:50%;background:var(--brand);box-shadow:0 0 12px var(--brand)}
+  .status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub);background:var(--chip);padding:6px 12px;border-radius:20px}
+  .status .led{width:9px;height:9px;border-radius:50%;background:var(--err);box-shadow:0 0 8px var(--err)}
+  .status.on .led{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .tabs{display:flex;gap:8px;margin:6px 0 16px;flex-wrap:wrap}
+  .tabs button{border:1px solid var(--line);background:var(--panel);color:var(--sub);padding:9px 16px;border-radius:10px;cursor:pointer;font-size:14px}
+  .tabs button.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border:none}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:14px}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .card h2 .ic{font-size:16px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+  .kv .k{color:var(--sub)}
+  .kv .v{text-align:right;word-break:break-all}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  button{font-family:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:9px 13px;border-radius:10px;font-size:13px;transition:.15s}
+  button:hover{border-color:var(--brand);transform:translateY(-1px)}
+  button:active{transform:translateY(0)}
+  button.primary{background:linear-gradient(135deg,var(--brand),var(--brand2));border:none;font-weight:600}
+  button.ghost{background:transparent}
+  button.danger{border-color:#f0c4c4;color:#c0392b;background:#fdecec}
+  button.sm{padding:5px 9px;font-size:12px}
+  .pill{display:inline-block;padding:3px 9px;border-radius:20px;background:var(--chip);font-size:12px;color:var(--sub);margin:3px 4px 3px 0}
+  .full{grid-column:1/-1}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{color:var(--sub);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--panel2)}
+  td.pkg{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;word-break:break-all;color:#3a4252}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#fff;border:1px solid var(--line);box-shadow:0 8px 24px rgba(20,30,60,.14);padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:50;color:var(--txt)}
+  .toast.show{opacity:1}
+  .toast.ok{border-color:var(--ok)} .toast.err{border-color:var(--err)} .toast.warn{border-color:var(--warn)}
+  .hint{font-size:12px;color:var(--sub);line-height:1.6;margin-top:8px}
+  .empty{padding:26px;text-align:center;color:var(--sub);font-size:14px}
+  .bar{height:7px;border-radius:6px;background:var(--panel2);overflow:hidden;margin-top:4px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2))}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{border:none;border-radius:0;background:transparent}
+  .seg button.active{background:var(--brand);color:#fff}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--sub);border-top-color:var(--brand);border-radius:50%;animation:sp 0.7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  details summary{cursor:pointer;color:var(--sub);font-size:13px;margin-top:4px}
+  textarea,input[type=text],input[type=number],select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:8px 10px;font-size:13px;font-family:inherit}
+  input[type=text],textarea,select{font-family:ui-monospace,Menlo,Consolas,monospace}
+  textarea{width:100%;resize:vertical}
+  .mini{width:130px}
+  /* 包名管理器 */
+  .searchbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .searchbar input{max-width:340px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chips button{border:1px solid var(--line);background:var(--panel2);color:var(--sub);padding:6px 12px;border-radius:20px;font-size:12px}
+  .chips button.active{border-color:var(--brand);color:var(--txt);background:var(--chip)}
+  .tbl-wrap{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;margin-right:4px}
+  .b-critical{background:#fdecec;color:#c0392b;border:1px solid #f3c4c4}
+  .b-safe{background:#e8f7f0;color:#128a63;border:1px solid #bfe7d5}
+  .b-caution{background:#fdf3e0;color:#b9760a;border:1px solid #f0d9a8}
+  .b-known{background:#eaf0ff;color:#3656c7;border:1px solid #c8d4f5}
+  .b-unknown{background:#f1f3f7;color:#687086;border:1px solid #e3e8f0}
+  .b-removed{background:#eef1f7;color:#3a4658;border:1px solid #d7deea}
+  .b-sys{background:#f0eaf8;color:#8b4fff}
+  .b-user{background:#e6f6f3;color:#128a86}
+  .nm{font-weight:600}
+  .pkg-actions button{margin:2px 2px 2px 0}
+  .modal{position:fixed;inset:0;background:rgba(20,30,60,.45);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+  .modal.show{display:flex}
+  .modal .box{background:var(--panel);border:1px solid var(--err);border-radius:14px;max-width:460px;padding:22px;box-shadow:0 16px 48px rgba(20,30,60,.25)}
+  .modal h3{margin:0 0 10px;color:var(--err)}
+  .modal p{font-size:13px;line-height:1.7;color:var(--txt);white-space:pre-wrap}
+  .modal .row{margin-top:14px;justify-content:flex-end}
+  .modal label{display:flex;align-items:center;gap:8px;font-size:13px;margin-top:12px;color:var(--warn)}
+  .count{font-size:12px;color:var(--sub)}
+  /* 系统调优 */
+  .sub{font-size:13px;font-weight:600;margin:16px 0 8px;color:var(--txt);padding-top:6px;border-top:1px dashed var(--line)}
+  .sub:first-of-type{border-top:none;padding-top:0}
+  .field{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+  .field>span:first-child{font-size:13px;color:var(--sub);min-width:96px}
+  .switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;user-select:none}
+  .switch input{display:none}
+  .switch .track{width:42px;height:23px;border-radius:13px;background:var(--panel2);border:1px solid var(--line);position:relative;transition:.15s;flex:0 0 auto}
+  .switch .track::after{content:'';position:absolute;width:17px;height:17px;border-radius:50%;background:#fff;border:1px solid var(--line);top:2px;left:2px;transition:.15s}
+  .switch input:checked + .track{background:var(--brand);border-color:var(--brand)}
+  .switch input:checked + .track::after{left:21px;background:#fff;border-color:transparent}
+  /* 文件管理 */
+  .fs-path{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;margin-bottom:10px}
+  .fs-path .seg-path{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+  .fs-list{border:1px solid var(--line);border-radius:10px;max-height:480px;overflow:auto}
+  .fs-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer;transition:.12s}
+  .fs-row:last-child{border-bottom:none}
+  .fs-row:hover{background:var(--panel2)}
+  .fs-row .ic{font-size:16px;width:20px;text-align:center}
+  .fs-row .nm{flex:1;word-break:break-all}
+  .fs-row .sz{color:var(--sub);font-size:12px}
+  .fs-row .acts{display:flex;gap:6px}
+  .fs-row .acts button{margin:0}
+  .fs-row.dir .nm{font-weight:600;color:var(--brand)}
+  .dl-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+  .dl-item{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+  .dl-item a{text-decoration:none}
+  /* 监控图表 */
+  canvas{width:100%;height:160px;display:block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-top:8px}
+  .stat-big{font-size:30px;font-weight:700}
+  .gauge{display:flex;gap:14px;flex-wrap:wrap}
+  .gauge .box{flex:1;min-width:140px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .gauge .box .l{font-size:12px;color:var(--sub);margin-bottom:4px}
+  /* 宏/方案列表 */
+  .item-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .item{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;flex-wrap:wrap}
+  .item .nm{flex:1;font-weight:600;word-break:break-all}
+  .item .meta{font-size:11px;color:var(--sub)}
+  .steps{font-size:11px;color:var(--sub);font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:4px;word-break:break-all;width:100%}
+  .micro{font-size:11px;color:var(--sub)}
+  .rec-dot{width:10px;height:10px;border-radius:50%;background:var(--err);display:inline-block;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.2}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="dot"></span> ADB 手机优化助手</div>
+    <div class="status" id="status"><span class="led"></span><span id="statusText">检测中…</span></div>
+  </header>
+
+  <div class="tabs">
+    <button data-tab="overview" class="active">📊 概览优化</button>
+    <button data-tab="pkg">🧹 包名管理器</button>
+    <button data-tab="tweak">🎛️ 系统调优</button>
+    <button data-tab="auto">🤖 模拟输入</button>
+    <button data-tab="fs">📁 文件管理</button>
+    <button data-tab="wireless">📡 无线调试</button>
+    <button data-tab="monitor">📈 监控诊断</button>
+    <button data-tab="advauto">🕹️ 自动化进阶</button>
+  </div>
+
+  <div id="devicePicker" class="card full" style="display:none">
+    <h2><span class="ic">📱</span> 选择设备</h2>
+    <div class="devsel" id="devsel"></div>
+  </div>
+
+  <!-- 概览 -->
+  <div id="tab-overview">
+  <div id="dashboard" style="display:none">
+    <div class="grid">
+      <div class="card">
+        <h2><span class="ic">📊</span> 设备概览</h2>
+        <div class="kv" id="infoKV"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <h2><span class="ic">⚡</span> 一键优化</h2>
+        <p class="hint">清理后台进程、释放被占用的内存，不影响前台应用与你的数据。</p>
+        <div class="row" style="margin-top:10px">
+          <button class="primary" id="btnBoost">⚡ 一键加速</button>
+          <button class="ghost" id="btnRefresh">🔄 刷新数据</button>
+        </div>
+        <div class="bar" style="margin-top:12px"><i id="memBar" style="width:0%"></i></div>
+        <div class="hint" id="memText"></div>
+      </div>
+      <div class="card">
+        <h2><span class="ic">🎞️</span> 流畅度 / 动画</h2>
+        <p class="hint">降低或关闭系统动画可让操作更跟手。</p>
+        <div class="row" style="margin-top:10px">
+          <div class="seg" id="animSeg">
+            <button data-v="0">关闭</button>
+            <button data-v="0.5">0.5x</button>
+            <button data-v="1">1x</button>
+          </div>
+          <button class="ghost sm" id="btnAnimGet">读取当前</button>
+        </div>
+        <p class="hint" style="margin-top:14px">屏幕自动熄灭时间：</p>
+        <div class="row">
+          <div class="seg" id="timeoutSeg">
+            <button data-v="15000">15秒</button>
+            <button data-v="30000">30秒</button>
+            <button data-v="60000">1分</button>
+            <button data-v="120000">2分</button>
+            <button data-v="300000">5分</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2><span class="ic">🔋</span> 电池优化白名单</h2>
+        <p class="hint">把常用应用加入白名单可避免被系统后台限制。</p>
+        <div class="row" style="margin-top:10px">
+          <input type="text" id="wlInput" placeholder="例如 com.tencent.mm" style="max-width:280px">
+          <button class="sm" id="btnWlAdd">加入</button>
+        </div>
+        <div id="wlList" class="row" style="margin-top:10px"><span class="hint">加载中…</span></div>
+      </div>
+      <div class="card full">
+        <h2><span class="ic">🧹</span> 应用管理（已安装的用户应用）</h2>
+        <p class="hint">强停=结束运行；清数据=清空缓存与账号数据（谨慎）；禁用=停用预装/不用的应用（可恢复）。</p>
+        <div class="row" style="margin:10px 0">
+          <button class="ghost sm" id="btnLoadApps">重新加载</button>
+          <span class="hint" id="appsCount"></span>
+        </div>
+        <div style="max-height:340px;overflow:auto">
+          <table id="appsTable"><thead><tr><th>包名</th><th style="width:240px">操作</th></tr></thead>
+          <tbody id="appsBody"><tr><td colspan="2" class="empty">加载中…</td></tr></tbody></table>
+        </div>
+      </div>
+      <div class="card full">
+        <details>
+          <summary>🛠️ 进阶：执行自定义 adb shell 命令（危险操作请谨慎）</summary>
+          <p class="hint">直接对手机执行 shell 命令，结果原样返回。请确保你清楚命令含义。</p>
+          <textarea id="shellCmd" rows="3" placeholder="例如：settings get global window_animation_scale"></textarea>
+          <div class="row" style="margin-top:8px"><button class="sm" id="btnShell">执行</button></div>
+          <pre id="shellOut" class="hint" style="white-space:pre-wrap;margin-top:10px"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- 包名管理器 -->
+  <div id="tab-pkg" style="display:none">
+    <div class="card full">
+      <h2><span class="ic">🧹</span> 包名管理器（卸载 / 禁用预装）</h2>
+      <p class="hint">把看不懂的包名对照成你能认出的名字；<b style="color:var(--err)">红色「关键·勿动」</b>是系统核心组件，误卸可能导致开不了机/黑屏，工具会强制二次确认。本工具只对「当前用户」操作，绝大多数可随时恢复。若你之前卸载过应用，点「已卸载·可恢复」筛选即可一键恢复。</p>
+      <div class="searchbar">
+        <input type="text" id="pkgSearch" placeholder="搜索包名或中文名，如 miui / 视频 / 微信">
+        <button class="sm" id="btnLoadPkgs">加载 / 刷新</button>
+        <span class="count" id="pkgCount"></span>
+      </div>
+      <div class="chips" id="pkgChips">
+        <button data-f="all" class="active">全部</button>
+        <button data-f="system">系统应用</button>
+        <button data-f="user">用户应用</button>
+        <button data-f="safe">可卸载</button>
+        <button data-f="caution">谨慎</button>
+        <button data-f="critical">关键·勿动</button>
+        <button data-f="unknown">未知包</button>
+        <button data-f="removed">已卸载·可恢复</button>
+      </div>
+      <div class="tbl-wrap" style="margin-top:12px">
+        <table id="pkgTable">
+          <thead><tr><th style="width:26%">名称</th><th>包名</th><th style="width:160px">分类 / 类型</th><th style="width:230px">操作</th></tr></thead>
+          <tbody id="pkgBody"><tr><td colspan="4" class="empty">点击「加载 / 刷新」获取已安装应用列表</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 系统调优 -->
+  <div id="tab-tweak" style="display:none">
+    <div class="card full">
+      <h2><span class="ic">🎛️</span> 系统调优（无需 Root 的隐藏设置）</h2>
+      <p class="hint">这些设置直接写入系统设置数据库，重启后依然生效；多数可在手机设置里或用「重置」撤销。涉及系统行为的项已标注，请按需调整，不影响正常使用。</p>
+
+      <div class="sub">🔒 隐私与权限</div>
+      <div class="field"><label class="switch"><input type="checkbox" id="swSensor"><span class="track"></span></label><span>一键关闭所有传感器（摄像头/麦克风/陀螺仪）</span></div>
+      <div class="field"><label class="switch"><input type="checkbox" id="swAd"><span class="track"></span></label><span>关闭个性化广告追踪</span></div>
+      <div class="field">
+        <span>App 权限：</span>
+        <input type="text" id="permPkg" class="mini" placeholder="包名">
+        <select id="permName" class="mini">
+          <option value="android.permission.ACCESS_FINE_LOCATION">定位(精确)</option>
+          <option value="android.permission.ACCESS_COARSE_LOCATION">定位(粗略)</option>
+          <option value="android.permission.CAMERA">相机</option>
+          <option value="android.permission.RECORD_AUDIO">麦克风</option>
+          <option value="android.permission.READ_CONTACTS">通讯录</option>
+          <option value="android.permission.READ_PHONE_STATE">电话状态</option>
+          <option value="android.permission.READ_CALL_LOG">通话记录</option>
+          <option value="android.permission.SEND_SMS">短信</option>
+          <option value="android.permission.READ_EXTERNAL_STORAGE">存储(读)</option>
+          <option value="android.permission.WRITE_EXTERNAL_STORAGE">存储(写)</option>
+        </select>
+        <button class="sm" id="btnPermRevoke">撤销</button>
+        <button class="sm" id="btnPermGrant">授予</button>
+      </div>
+      <div class="field">
+        <span>特殊权限：</span>
+        <input type="text" id="spPkg" class="mini" placeholder="包名" style="width:180px">
+        <input type="text" id="spPerm" class="mini" placeholder="权限名" style="width:240px">
+        <button class="sm" id="btnSpGrant">授予(如 WRITE_SECURE_SETTINGS)</button>
+      </div>
+      <div class="field">
+        <span>通知：</span>
+        <input type="text" id="ntfPkg" class="mini" placeholder="包名" style="width:200px">
+        <button class="sm" id="btnNtfOff">禁用</button>
+        <button class="sm" id="btnNtfOn">开启</button>
+      </div>
+
+      <div class="sub">🎨 显示与外观</div>
+      <div class="field"><label class="switch"><input type="checkbox" id="swDark"><span class="track"></span></label><span>强制深色模式（让不支持暗黑的应用也变暗）</span></div>
+      <div class="field"><span>字体缩放：</span><input type="number" id="fontScale" class="mini" step="0.05" min="0.7" max="1.5"><button class="sm" id="btnFont">应用</button></div>
+      <div class="field"><span>屏幕密度 DPI：</span><input type="text" id="density" class="mini" placeholder="如 440"><button class="sm" id="btnDensity">应用</button><button class="sm ghost" id="btnDensityR">重置</button><span class="hint">小屏单手模式，重启或重置生效</span></div>
+      <div class="field"><span>分辨率 WxH：</span><input type="text" id="wmSize" class="mini" placeholder="如 1080x2400"><button class="sm" id="btnWmSize">应用</button><button class="sm ghost" id="btnWmSizeR">重置</button></div>
+      <div class="field"><span>刷新率(最小/最大)：</span><input type="text" id="refMin" class="mini" placeholder="min 如 60"><input type="text" id="refMax" class="mini" placeholder="max 如 120"><button class="sm" id="btnRef">应用</button><span class="hint">锁低刷新率可省电</span></div>
+
+      <div class="sub">⚡ 性能与续航</div>
+      <div class="field"><span>后台进程限制：</span>
+        <select id="bgLimit" class="mini">
+          <option value="null">系统默认</option><option value="0">无限制</option>
+          <option value="1">最多 1 个</option><option value="2">最多 2 个</option>
+          <option value="3">最多 3 个</option><option value="4">最多 4 个</option>
+        </select>
+        <button class="sm" id="btnBg">应用</button>
+      </div>
+      <div class="field"><button class="sm" id="btnDisableAds">🚫 一键关闭小米系统广告</button><span class="hint">停用 MSA / MiuiDaemon 并关闭个性化广告</span></div>
+      <div class="field"><label class="switch"><input type="checkbox" id="swOta"><span class="track"></span></label><span>禁用自动系统更新（避免被迫升级）</span></div>
+      <div class="field"><span>性能模式：</span>
+        <select id="powerMode" class="mini"><option value="middle">均衡</option><option value="high-performance">高性能</option><option value="low">省电</option></select>
+        <button class="sm" id="btnPower">应用</button>
+      </div>
+
+      <div class="sub">🔊 声音与网络</div>
+      <div class="field"><label class="switch"><input type="checkbox" id="swAbsVol"><span class="track"></span></label><span>关闭绝对蓝牙音量（耳机与手机音量分离）</span></div>
+      <div class="field"><span>私人 DNS：</span>
+        <select id="dnsMode" class="mini"><option value="off">关闭</option><option value="opportunistic">自动</option><option value="hostname">指定(去广告/隐私)</option></select>
+        <input type="text" id="dnsSpec" class="mini" placeholder="如 dns.adguard-dns.com" style="width:200px">
+        <button class="sm" id="btnDns">应用</button>
+      </div>
+      <div class="field"><span>快速开关：</span>
+        <button class="sm" id="btnWifi">WiFi 开</button><button class="sm" id="btnWifiOff">WiFi 关</button>
+        <button class="sm" id="btnData">数据 开</button><button class="sm" id="btnDataOff">数据 关</button>
+        <button class="sm" id="btnAir">飞行 开</button><button class="sm" id="btnAirOff">飞行 关</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自动化 -->
+  <div id="tab-auto" style="display:none">
+    <div class="card full">
+      <h2><span class="ic">🤖</span> 自动化工具</h2>
+      <p class="hint">用 ADB 模拟触摸与按键、截图录屏，无需安装第三方 App。坐标可在「开发者选项 → 指针位置」中查看。</p>
+      <div class="sub">🖱️ 模拟输入</div>
+      <div class="field"><span>点击坐标：</span><input type="text" id="tapX" class="mini" placeholder="X"><input type="text" id="tapY" class="mini" placeholder="Y"><button class="sm" id="btnTap">点击</button></div>
+      <div class="field"><span>滑动：</span><input type="text" id="swX1" class="mini" placeholder="x1"><input type="text" id="swY1" class="mini" placeholder="y1"><input type="text" id="swX2" class="mini" placeholder="x2"><input type="text" id="swY2" class="mini" placeholder="y2"><input type="text" id="swDur" class="mini" placeholder="ms(默认300)"><button class="sm" id="btnSwipe">滑动</button></div>
+      <div class="field"><span>输入文本：</span><input type="text" id="inpText" placeholder="要输入的文字" style="width:280px"><button class="sm" id="btnText">发送</button></div>
+      <div class="field"><span>常用按键：</span>
+        <button class="sm" data-key="KEYCODE_HOME">主页</button>
+        <button class="sm" data-key="KEYCODE_BACK">返回</button>
+        <button class="sm" data-key="KEYCODE_APP_SWITCH">多任务</button>
+        <button class="sm" data-key="KEYCODE_POWER">电源</button>
+      </div>
+      <div class="sub">📸 截图 / 录屏</div>
+      <div class="field"><button class="sm" id="btnCap">📸 截图</button><button class="sm" id="btnRec">⏺️ 录屏(10s)</button><span class="hint">文件保存在手机 /sdcard/ 下</span></div>
+    </div>
+  </div>
+
+  <!-- 文件管理 -->
+  <div id="tab-fs" style="display:none">
+    <div class="card full">
+      <h2><span class="ic">📁</span> 文件管理（浏览 / 电脑↔手机互传）</h2>
+      <p class="hint">基于 USB 的 MTP 太慢？这里走 ADB 直连，速度更快。可浏览手机目录、把文件拉到电脑、从电脑推送到手机。</p>
+      <div class="fs-path">
+        <span>📂</span><span class="seg-path" id="fsPath">/sdcard</span>
+        <button class="sm ghost" id="fsUp">↑ 上一级</button>
+        <button class="sm" id="fsNew">📁 新建文件夹</button>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <button class="sm primary" id="fsUpload">⬆️ 上传文件到手机</button>
+        <input type="file" id="fsFile" style="display:none">
+        <span class="hint" id="fsHint"></span>
+      </div>
+      <div class="fs-list" id="fsList"><div class="empty">加载中…</div></div>
+      <div class="dl-list" id="fsDlList"></div>
+    </div>
+  </div>
+
+  <!-- 无线调试 -->
+  <div id="tab-wireless" style="display:none">
+    <div class="card full">
+      <h2><span class="ic">📡</span> 无线 ADB（免插线调试）</h2>
+      <p class="hint">首次需在手机「开发者选项 → 无线调试」中开启并配对；此处可把手机切到 TCP/IP 模式并从电脑连接，之后即可拔掉数据线继续调优。</p>
+      <div class="kv" id="wireState"><div class="empty">检测中…</div></div>
+      <div class="sub">连接到手机（TCP/IP）</div>
+      <div class="field">
+        <span>手机 IP：</span><input type="text" id="wIp" class="mini" placeholder="如 192.168.1.50" style="width:160px">
+        <span>端口：</span><input type="text" id="wPort" class="mini" value="5555" style="width:80px">
+        <button class="sm primary" id="wConnect">🔗 连接</button>
+        <button class="sm" id="wEnable">① 开启无线(需先插USB)</button>
+        <button class="sm ghost" id="wDisconnect">断开</button>
+      </div>
+      <p class="hint">提示：在手机「无线调试」界面可看到 IP 与端口；若显示「配对码」，请先按系统提示完成配对再点连接。</p>
+    </div>
+  </div>
+
+  <!-- 监控诊断 -->
+  <div id="tab-monitor" style="display:none">
+    <div class="grid">
+      <div class="card">
+        <h2><span class="ic">🔋</span> 电池与温度</h2>
+        <div class="gauge" id="batGauge"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <h2><span class="ic">📈</span> 实时性能</h2>
+        <div id="perfNow"><div class="empty">加载中…</div></div>
+        <canvas id="cpuChart" height="160"></canvas>
+      </div>
+      <div class="card full">
+        <h2><span class="ic">🛡️</span> 危险权限审计</h2>
+        <p class="hint">列出所有用户应用声明的危险权限（定位/相机/麦克风/通讯录/短信/存储等），便于排查隐私风险。</p>
+        <div class="row" style="margin:8px 0"><button class="sm primary" id="permScan">扫描</button><span class="hint" id="permCount"></span></div>
+        <div class="tbl-wrap" style="max-height:420px">
+          <table id="permTable"><thead><tr><th style="width:30%">应用</th><th>危险权限</th></tr></thead>
+          <tbody id="permBody"><tr><td colspan="2" class="empty">点击「扫描」开始</td></tr></tbody></table>
+        </div>
+      </div>
+      <div class="card full">
+        <h2><span class="ic">📋</span> 设备健康报告</h2>
+        <div class="row" style="margin-bottom:10px"><button class="sm primary" id="btnReport">生成报告</button><button class="sm" id="btnReportPrint">打印 / 另存为 PDF</button><span class="hint" id="reportTime"></span></div>
+        <div id="reportBody"><div class="empty">点击「生成报告」汇总设备、电池、存储、应用与已做调优。</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自动化进阶 -->
+  <div id="tab-advauto" style="display:none">
+    <div class="grid">
+      <div class="card full">
+        <h2><span class="ic">🕹️</span> 宏（录制一串操作反复播放）</h2>
+        <p class="hint">把若干「点击 / 滑动 / 输入 / 按键」组合成一个宏，保存后可一键回放（如签到、批量操作）。</p>
+        <div class="sub">① 添加步骤</div>
+        <div class="field">
+          <select id="macroAct" class="mini">
+            <option value="input_tap">点击</option>
+            <option value="input_swipe">滑动</option>
+            <option value="input_text">输入文本</option>
+            <option value="input_key">按键</option>
+          </select>
+          <input type="text" id="macroP1" class="mini" placeholder="参数1 (x / x1 / 文本 / KEYCODE_BACK)">
+          <input type="text" id="macroP2" class="mini" placeholder="参数2 (y / y1)">
+          <input type="text" id="macroP3" class="mini" placeholder="参数3 (x2 / 延迟0.3)">
+          <input type="text" id="macroP4" class="mini" placeholder="参数4 (y2)">
+          <button class="sm" id="macroAdd">+ 加入步骤</button>
+        </div>
+        <div class="hint" id="macroPreview"></div>
+        <div class="sub">② 保存 / 运行</div>
+        <div class="field">
+          <input type="text" id="macroName" class="mini" placeholder="宏名称，如 每日签到" style="width:200px">
+          <button class="sm primary" id="macroSave">💾 保存宏</button>
+          <span class="hint">已保存宏：</span>
+          <span id="macroList" class="chips"></span>
+        </div>
+      </div>
+
+      <div class="card full">
+        <h2><span class="ic">⏰</span> 定时任务</h2>
+        <p class="hint">按计划自动执行调优或运行宏（后台线程，每 30 秒检查一次；应用关闭后不执行）。</p>
+        <div class="field">
+          <input type="text" id="schName" class="mini" placeholder="任务名" style="width:150px">
+          <select id="schType" class="mini"><option value="daily">每天</option><option value="interval">每隔分钟</option></select>
+          <input type="text" id="schTime" class="mini" placeholder="06:30 或 分钟数" style="width:120px">
+          <select id="schAction" class="mini"><option value="input_tap">点击</option><option value="input_swipe">滑动</option><option value="input_text">输入文本</option></select>
+          <input type="text" id="schArg" class="mini" placeholder="参数 (x y / x1 y1 x2 y2 / 文本)" style="width:200px">
+          <button class="sm primary" id="schAdd">+ 添加</button>
+        </div>
+        <div class="item-list" id="schList"></div>
+      </div>
+
+      <div class="card full">
+        <h2><span class="ic">🎚️</span> 一键预设方案</h2>
+        <p class="hint">把一组调优存成方案，一键套用；亦可导出 / 保存自定义方案。</p>
+        <div class="item-list" id="presetList"></div>
+        <div class="sub">保存当前为自定义方案</div>
+        <div class="field">
+          <input type="text" id="presetName" class="mini" placeholder="方案名，如 我的办公模式" style="width:220px">
+          <select id="presetBase" class="mini"><option value="">（空白）</option></select>
+          <button class="sm primary" id="presetSave">💾 保存</button>
+          <button class="sm ghost" id="presetExport">⬇️ 导出 JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 未连接提示 -->
+  <div id="disconnected" class="card full" style="display:none">
+    <div class="empty">
+      <div style="font-size:40px;margin-bottom:8px">🔌</div>
+      <div id="discMsg">未检测到设备</div>
+      <p class="hint" style="max-width:560px;margin:14px auto 0">
+        请确认：① 手机已用<b>数据线</b>连接电脑；② 已开启「开发者选项 → USB 调试」；
+        ③ 手机弹出「是否允许 USB 调试」时点击<b>允许</b>。连接成功后本页面会自动刷新。
+      </p>
+      <div class="row" style="justify-content:center;margin-top:14px"><button class="ghost sm" id="btnRetry">重新检测</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 关键包强提示弹窗 -->
+<div class="modal" id="modal">
+  <div class="box">
+    <h3>⚠️ 这是一个系统关键组件</h3>
+    <p id="modalText"></p>
+    <label><input type="checkbox" id="modalForce"> 我已知晓风险，仍要对其进行此操作（不可恢复前请三思）</label>
+    <div class="row">
+      <button class="ghost" id="modalCancel">取消</button>
+      <button class="danger" id="modalOk" disabled>仍然执行</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let STATE = {connected:false, serial:null, devices:[]};
+let PKGS = [];           // 当前包列表
+let PKG_FILTER = "all";
+
+function toast(msg, type='ok'){
+  const t=$('#toast'); t.textContent=msg; t.className='toast show '+type;
+  clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast',2600);
+}
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
+  return await r.json();
+}
+
+// ---------- 标签页 ----------
+const TABS=['overview','pkg','tweak','auto','fs','wireless','monitor','advauto'];
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const t=b.dataset.tab;
+    TABS.forEach(id=>{ const el=$('#tab-'+id); if(el) el.style.display = id===t?'block':'none'; });
+    if(t==='pkg') loadPkgs();
+    if(t==='tweak') loadTweak();
+    if(t==='auto') {} // 模拟输入：本页无异步加载
+    if(t==='fs') loadFs('/sdcard');
+    if(t==='wireless') loadWireless();
+    if(t==='monitor'){ MONITOR_ON=true; loadMonitor(); }
+    else { MONITOR_ON=false; }
+    if(t==='advauto') loadAdvAuto();
+  };
+});
+
+// ---------- 连接状态 ----------
+async function checkStatus(){
+  const d = await api('/api/status');
+  STATE.connected = d.connected; STATE.serial = d.serial; STATE.devices = d.devices||[];
+  const st = $('#status');
+  if(d.connected){
+    st.classList.add('on');
+    $('#statusText').textContent = '已连接 · ' + (d.serial||'');
+    $('#disconnected').style.display='none';
+    if(STATE.devices.length>1){ showPicker(); } else { $('#devicePicker').style.display='none'; }
+    $('#dashboard').style.display='block';
+    loadInfo(); loadAnim(); loadWhitelist(); loadApps();
+  } else {
+    st.classList.remove('on');
+    $('#statusText').textContent = STATE.devices.length? '多台设备未选择' : '未连接';
+    $('#dashboard').style.display='none';
+    $('#discMsg').textContent = d.message || '未检测到设备';
+    $('#disconnected').style.display='block';
+  }
+}
+function showPicker(){
+  $('#devicePicker').style.display='block';
+  const box=$('#devsel'); box.innerHTML='';
+  STATE.devices.forEach(d=>{
+    const b=document.createElement('button');
+    b.textContent = d.model? (d.model+' ('+d.serial+')') : d.serial;
+    if(d.serial===STATE.serial) b.classList.add('active');
+    b.onclick=async()=>{ await api('/api/select',{method:'POST',body:JSON.stringify({serial:d.serial})}); checkStatus(); };
+    box.appendChild(b);
+  });
+}
+
+// ---------- 概览 ----------
+async function loadInfo(){
+  const d = await api('/api/info');
+  if(!d.ok){ $('#infoKV').innerHTML='<div class="empty">'+ (d.error||'获取失败') +'</div>'; return; }
+  const i=d.data;
+  const rows=[
+    ['型号', i.model||'-'],['品牌', i.brand||'-'],
+    ['Android', i.android||'-' + (i.sdk?' (API '+i.sdk+')':'')],
+    ['电量', i.battery_level||'-' + (i.battery_temp?' · '+i.battery_temp:'')],
+    ['内存(可用/总)', (i.mem_available||'-')+' / '+(i.mem_total||'-')],
+    ['存储(可用)', i.storage_avail||'-' + (i.storage_used?' / 已用 '+i.storage_used:'')],
+  ];
+  $('#infoKV').innerHTML = rows.map(r=>`<div class="k">${r[0]}</div><div class="v">${r[1]}</div>`).join('');
+  if(i.mem_total && i.mem_available){
+    const tot=parseFloat(i.mem_total), av=parseFloat(i.mem_available);
+    if(tot>0){ const pct=Math.round(av/tot*100); $('#memBar').style.width=pct+'%'; $('#memText').textContent='可用内存约 '+i.mem_available+' / '+i.mem_total+'（'+pct+'%）'; }
+  }
+}
+async function loadAnim(){
+  const d = await api('/api/anim');
+  if(!d.ok) return;
+  const v=d.data.window_animation_scale;
+  document.querySelectorAll('#animSeg button').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
+}
+async function setAnim(v){
+  const d = await api('/api/anim',{method:'POST',body:JSON.stringify({value:v})});
+  toast(d.ok?('动画已设为 '+v):(d.error||'失败'), d.ok?'ok':'err');
+  loadAnim();
+}
+async function loadWhitelist(){
+  const d = await api('/api/battery_whitelist');
+  const box=$('#wlList');
+  if(!d.ok){ box.innerHTML='<span class="hint">获取失败</span>'; return; }
+  if(!d.data.length){ box.innerHTML='<span class="hint">暂无白名单</span>'; return; }
+  box.innerHTML='';
+  d.data.slice(0,40).forEach(p=>{
+    const c=document.createElement('span'); c.className='pill'; c.textContent=p;
+    c.title='点击移除'; c.style.cursor='pointer';
+    c.onclick=async()=>{ const r=await api('/api/battery_whitelist',{method:'POST',body:JSON.stringify({pkg:p,action:'remove'})}); toast(r.ok?('已移除 '+p):(r.error||'失败'),r.ok?'ok':'err'); loadWhitelist(); };
+    box.appendChild(c);
+  });
+}
+async function loadApps(){
+  const d = await api('/api/apps');
+  const body=$('#appsBody');
+  if(!d.ok){ body.innerHTML='<tr><td colspan="2" class="empty">'+(d.error||'获取失败')+'</td></tr>'; return; }
+  $('#appsCount').textContent='共 '+d.data.length+' 个';
+  if(!d.data.length){ body.innerHTML='<tr><td colspan="2" class="empty">没有用户应用</td></tr>'; return; }
+  body.innerHTML='';
+  d.data.forEach(pkg=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="pkg">${pkg}</td><td></td>`;
+    const td=tr.querySelector('td:last-child');
+    const mk=(txt,cls,fn)=>{const b=document.createElement('button');b.className='sm '+(cls||'');b.textContent=txt;b.onclick=fn;td.appendChild(b);};
+    mk('强停','',async()=>{await act(pkg,'force_stop');});
+    mk('清数据','danger',async()=>{ if(confirm('确定清空「'+pkg+'」的全部数据（含缓存、登录态）？此操作不可撤销。')) await act(pkg,'clear'); });
+    mk('禁用','danger',async()=>{ if(confirm('确定停用「'+pkg+'」？可随时恢复。')) await act(pkg,'disable'); });
+    body.appendChild(tr);
+  });
+}
+async function act(pkg,action){
+  const d=await api('/api/app/action',{method:'POST',body:JSON.stringify({pkg,action})});
+  toast(d.ok?(pkg+' · '+action+' 成功'):(d.error||'失败'), d.ok?'ok':'err');
+  if(d.ok && action!=='force_stop') loadApps();
+}
+
+$('#btnBoost').onclick=async()=>{ const b=$('#btnBoost'); b.innerHTML='<span class="spin"></span>清理中'; const d=await api('/api/boost',{method:'POST'}); b.textContent='⚡ 一键加速'; toast(d.ok?'后台已清理，内存已释放':(d.error||'失败'), d.ok?'ok':'err'); loadInfo(); };
+$('#btnRefresh').onclick=()=>{ loadInfo(); loadAnim(); loadWhitelist(); loadApps(); toast('已刷新'); };
+$('#btnRetry').onclick=checkStatus;
+document.querySelectorAll('#animSeg button').forEach(b=>b.onclick=()=>setAnim(b.dataset.v));
+document.querySelectorAll('#timeoutSeg button').forEach(b=>b.onclick=async()=>{
+  const v=b.dataset.v; const d=await api('/api/setting',{method:'POST',body:JSON.stringify({namespace:'system',key:'screen_off_timeout',value:v})});
+  toast(d.ok?('屏幕超时已设为 '+b.textContent):(d.error||'失败'), d.ok?'ok':'err');
+});
+$('#btnWlAdd').onclick=async()=>{ const p=$('#wlInput').value.trim(); if(!p) return; const d=await api('/api/battery_whitelist',{method:'POST',body:JSON.stringify({pkg:p,action:'add'})}); toast(d.ok?('已加入 '+p):(d.error||'失败'),d.ok?'ok':'err'); $('#wlInput').value=''; loadWhitelist(); };
+$('#btnLoadApps').onclick=loadApps;
+$('#btnShell').onclick=async()=>{ const c=$('#shellCmd').value.trim(); if(!c) return; const d=await api('/api/shell',{method:'POST',body:JSON.stringify({command:c})}); $('#shellOut').textContent = (d.stdout||'') + (d.stderr?('\n[stderr]\n'+d.stderr):''); toast(d.ok?'执行完成':'执行出错('+d.code+')', d.ok?'ok':'err'); };
+
+// ---------- 包名管理器 ----------
+const CAT_LABEL={critical:'关键·勿动',safe:'可卸载',caution:'谨慎',known:'常见应用',unknown:'未知'};
+function catBadge(cat){ return `<span class="badge b-${cat}">${CAT_LABEL[cat]||'未知'}</span>`; }
+function sysBadge(sys){ return sys?`<span class="badge b-sys">系统</span>`:`<span class="badge b-user">用户</span>`; }
+
+async function loadPkgs(){
+  const body=$('#pkgBody'); body.innerHTML='<tr><td colspan="4" class="empty"><span class="spin"></span> 加载中…</td></tr>';
+  const d=await api('/api/packages');
+  if(!d.ok){ body.innerHTML='<tr><td colspan="4" class="empty">'+(d.error||'获取失败')+'</td></tr>'; return; }
+  PKGS = (d.data||[]).concat(d.removed||[]);
+  renderPkgs();
+}
+function renderPkgs(){
+  const q=$('#pkgSearch').value.trim().toLowerCase();
+  let list=PKGS.filter(p=>{
+    if(PKG_FILTER==='removed'){ if(!p.removed) return false; }
+    else if(p.removed){ if(PKG_FILTER!=='all') return false; }
+    if(PKG_FILTER==='system' && !p.system) return false;
+    if(PKG_FILTER==='user' && p.system) return false;
+    if(PKG_FILTER==='safe' && p.cat!=='safe') return false;
+    if(PKG_FILTER==='caution' && p.cat!=='caution') return false;
+    if(PKG_FILTER==='critical' && p.cat!=='critical') return false;
+    if(PKG_FILTER==='unknown' && p.cat!=='unknown') return false;
+    if(q){
+      const hay=(p.pkg+' '+(p.name||'')).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  $('#pkgCount').textContent='显示 '+list.length+' / 共 '+PKGS.length+' 个';
+  const body=$('#pkgBody');
+  if(!list.length){ body.innerHTML='<tr><td colspan="4" class="empty">没有匹配的应用</td></tr>'; return; }
+  body.innerHTML='';
+  list.forEach(p=>{
+    const tr=document.createElement('tr');
+    const name=p.name||p.pkg;
+    const isCrit=p.cat==='critical';
+    const badge = p.removed ? '<span class="badge b-removed">已卸载·可恢复</span>' : catBadge(p.cat);
+    tr.innerHTML=`<td><div class="nm">${name}</div>${p.name?`<div class="pkg">${p.pkg}</div>`:''}</td>
+      <td class="pkg">${p.name?'':p.pkg}</td>
+      <td>${badge}${sysBadge(p.system)}</td><td class="pkg-actions"></td>`;
+    const td=tr.querySelector('.pkg-actions');
+    const mk=(txt,cls,fn)=>{const b=document.createElement('button');b.className='sm '+(cls||'');b.textContent=txt;b.onclick=fn;td.appendChild(b);};
+    mk('查真名','',async()=>{ const r=await api('/api/label?pkg='+encodeURIComponent(p.pkg)); if(r.ok&&r.label){ p.name=r.label; toast('已获取：'+r.label); renderPkgs(); } else toast('未能自动识别名称（可对照资料）','warn'); });
+    if(p.removed){
+      mk('恢复','primary',()=>doPkgAction(p,'restore'));
+    } else {
+      mk('卸载','danger',()=>doPkgAction(p,'uninstall'));
+      mk('禁用','danger',()=>doPkgAction(p,'disable'));
+    }
+    if(isCrit && p.note){ const nt=document.createElement('div'); nt.className='hint'; nt.style.marginTop='4px'; nt.style.color='var(--err)'; nt.textContent='⚠ '+p.note; tr.querySelector('td:first-child').appendChild(nt); }
+    body.appendChild(tr);
+  });
+}
+function doPkgAction(p, action){
+  if(p.cat==='critical' && (action==='uninstall'||action==='disable')){
+    showModal(p, action); return;
+  }
+  confirmAndRun(p, action, false);
+}
+function confirmAndRun(p, action, force){
+  if((action==='uninstall'||action==='disable'||action==='restore') && !confirm(`确定对「${p.name||p.pkg}」执行 ${action}？\n（${action==='restore'?'恢复已卸载的应用':'此操作通常可恢复，但请确认无误'}）`)) return;
+  runPkg(p, action, force);
+}
+async function runPkg(p, action, force){
+  const body={pkg:p.pkg, action}; if(force) body.force=true;
+  const d=await api('/api/app/action',{method:'POST',body:JSON.stringify(body)});
+  if(d.blocked){ showModal(p, action, d.reason); return; }
+  toast(d.ok?(p.name||p.pkg)+' · '+action+' 成功':(d.error||'失败'), d.ok?'ok':'err');
+  loadPkgs();
+}
+// 关键包强提示弹窗
+let MODAL={p:null, action:null};
+function showModal(p, action, reason){
+  MODAL={p, action};
+  $('#modalText').textContent = (reason || p.note || '该包为系统关键组件，误操作可能导致系统无法使用。') +
+    `\n\n包名：${p.pkg}\n操作：${action}`;
+  $('#modalForce').checked=false;
+  $('#modalOk').disabled=true;
+  $('#modal').classList.add('show');
+}
+$('#modalForce').onchange=e=>{ $('#modalOk').disabled=!e.target.checked; };
+$('#modalCancel').onclick=()=>$('#modal').classList.remove('show');
+$('#modalOk').onclick=()=>{ const {p,action}=MODAL; $('#modal').classList.remove('show'); runPkg(p, action, true); };
+
+$('#btnLoadPkgs').onclick=loadPkgs;
+$('#pkgSearch').oninput=renderPkgs;
+document.querySelectorAll('#pkgChips button').forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll('#pkgChips button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); PKG_FILTER=b.dataset.f; renderPkgs(); };
+});
+
+// ---------- 系统调优 ----------
+async function tweak(body){
+  const d=await api('/api/tweak',{method:'POST',body:JSON.stringify(body)});
+  toast(d.ok?(d.message||'已更新'):(d.error||'失败'), d.ok?'ok':'err');
+  return d;
+}
+async function loadTweak(){
+  const d=await api('/api/tweak');
+  if(!d.ok) return;
+  const s=d.data||{};
+  const setSw=(id,on)=>{ const el=$('#'+id); if(el) el.checked = !!on; };
+  setSw('swSensor', s.sensors_off==='1');
+  setSw('swAd', s.personalized_ad==='0');           // 开关=“关闭广告”，个性化广告为0时开关开
+  setSw('swDark', s.force_dark==='1');
+  setSw('swOta', s.ota_disable==='1');
+  setSw('swAbsVol', s.absolute_volume==='1');
+  if(s.font_scale) $('#fontScale').value=s.font_scale;
+  const dm = s.density && s.density.match(/\d+/); if(dm) $('#density').value=dm[0];
+  if(s.background_limit!==undefined){ $('#bgLimit').value = (s.background_limit==='null'||s.background_limit===null)?'null':s.background_limit; }
+  if(s.power_mode) $('#powerMode').value = s.power_mode||'middle';
+  if(s.private_dns_mode) $('#dnsMode').value = s.private_dns_mode;
+  if(s.private_dns_spec) $('#dnsSpec').value = s.private_dns_spec;
+}
+function bindSwitch(id, bodyFn){
+  const el=$('#'+id);
+  if(!el) return;
+  el.onchange=async e=>{
+    const d=await tweak(bodyFn(e.target.checked));
+    if(!d.ok) e.target.checked=!e.target.checked;
+  };
+}
+bindSwitch('swSensor', c=>({action:'sensors_off', enable:c}));
+bindSwitch('swAd', c=>({action:'personalized_ad', disable:c}));
+bindSwitch('swDark', c=>({action:'force_dark', enable:c}));
+bindSwitch('swOta', c=>({action:'ota_disable', disable:c}));
+bindSwitch('swAbsVol', c=>({action:'absolute_volume', disable:c}));
+
+$('#btnPermRevoke').onclick=async()=>{ const pkg=$('#permPkg').value.trim(); if(!pkg){toast('请填包名','warn');return;} await tweak({action:'permission', pkg, perm:$('#permName').value, op:'revoke'}); };
+$('#btnPermGrant').onclick=async()=>{ const pkg=$('#permPkg').value.trim(); if(!pkg){toast('请填包名','warn');return;} await tweak({action:'permission', pkg, perm:$('#permName').value, op:'grant'}); };
+$('#btnSpGrant').onclick=async()=>{ const pkg=$('#spPkg').value.trim(), perm=$('#spPerm').value.trim(); if(!pkg||!perm){toast('请填包名与权限名','warn');return;} const d=await tweak({action:'special_perm', pkg, perm, op:'grant'}); if(d.ok) toast('已授予（若该 App 未声明此权限会失败）'); };
+$('#btnNtfOff').onclick=async()=>{ const pkg=$('#ntfPkg').value.trim(); if(!pkg){toast('请填包名','warn');return;} await tweak({action:'notification', pkg, op:'deny'}); };
+$('#btnNtfOn').onclick=async()=>{ const pkg=$('#ntfPkg').value.trim(); if(!pkg){toast('请填包名','warn');return;} await tweak({action:'notification', pkg, op:'allow'}); };
+
+$('#btnFont').onclick=async()=>{ const v=parseFloat($('#fontScale').value); if(isNaN(v)){toast('请输入数字','warn');return;} await tweak({action:'font_scale', value:v}); };
+$('#btnDensity').onclick=async()=>{ const v=$('#density').value.trim(); if(!/^\d+$/.test(v)){toast('请输入纯数字 DPI','warn');return;} await tweak({action:'wm_density', value:v}); };
+$('#btnDensityR').onclick=()=>tweak({action:'wm_density', reset:true});
+$('#btnWmSize').onclick=async()=>{ const v=$('#wmSize').value.trim(); if(!/^\d+x\d+$/i.test(v)){toast('格式如 1080x2400','warn');return;} await tweak({action:'wm_size', value:v}); };
+$('#btnWmSizeR').onclick=()=>tweak({action:'wm_size', reset:true});
+$('#btnRef').onclick=async()=>{ const mn=$('#refMin').value.trim(), mx=$('#refMax').value.trim(); await tweak({action:'refresh_rate', min:mn, max:mx}); };
+
+$('#btnBg').onclick=async()=>{ await tweak({action:'background_limit', value:$('#bgLimit').value}); };
+$('#btnDisableAds').onclick=async()=>{ if(confirm('确定关闭小米系统广告与个性化推荐？此操作安全可恢复。')) await tweak({action:'disable_ads'}); };
+$('#btnPower').onclick=async()=>{ await tweak({action:'power_mode', mode:$('#powerMode').value}); };
+$('#btnDns').onclick=async()=>{ await tweak({action:'private_dns', mode:$('#dnsMode').value, specifier:$('#dnsSpec').value.trim()}); };
+$('#btnWifi').onclick=()=>tweak({action:'svc', svc:'wifi', enable:true});
+$('#btnWifiOff').onclick=()=>tweak({action:'svc', svc:'wifi', enable:false});
+$('#btnData').onclick=()=>tweak({action:'svc', svc:'data', enable:true});
+$('#btnDataOff').onclick=()=>tweak({action:'svc', svc:'data', enable:false});
+$('#btnAir').onclick=()=>tweak({action:'svc', svc:'airplane', enable:true});
+$('#btnAirOff').onclick=()=>tweak({action:'svc', svc:'airplane', enable:false});
+
+// ---------- 自动化 ----------
+$('#btnTap').onclick=async()=>{ const x=$('#tapX').value.trim(), y=$('#tapY').value.trim(); if(!/^\d+$/.test(x)||!/^\d+$/.test(y)){toast('请输入数字坐标','warn');return;} await tweak({action:'input_tap', x, y}); };
+$('#btnSwipe').onclick=async()=>{ const a=['swX1','swY1','swX2','swY2'].map(i=>$('#'+i).value.trim()); if(a.some(v=>!/^\d+$/.test(v))){toast('请输入数字坐标','warn');return;} const dur=parseInt($('#swDur').value.trim()||'300',10); await tweak({action:'input_swipe', x1:a[0],y1:a[1],x2:a[2],y2:a[3],dur}); };
+$('#btnText').onclick=async()=>{ const t=$('#inpText').value; if(!t){toast('请输入文字','warn');return;} await tweak({action:'input_text', text:t}); };
+document.querySelectorAll('[data-key]').forEach(b=>{ b.onclick=()=>tweak({action:'input_key', key:b.dataset.key}); });
+$('#btnCap').onclick=async()=>{ const d=await tweak({action:'screencap'}); if(d.ok&&d.path) toast('截图已保存：'+d.path); };
+$('#btnRec').onclick=async()=>{ const d=await tweak({action:'screenrecord', limit:10}); if(d.ok&&d.path) toast('录屏已保存：'+d.path); };
+
+// ---------- 文件管理 ----------
+function fmtSize(b){ b=Number(b)||0; if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(1)+' KB'; if(b<1073741824) return (b/1048576).toFixed(1)+' MB'; return (b/1073741824).toFixed(2)+' GB'; }
+let FS_PATH='/sdcard', DL_ITEMS=[];
+async function loadFs(path){
+  if(path) FS_PATH=path;
+  const d=await api('/api/fs?path='+encodeURIComponent(FS_PATH));
+  $('#fsPath').textContent=FS_PATH;
+  const box=$('#fsList');
+  if(!d.ok){ box.innerHTML='<div class="empty">'+(d.error||'加载失败')+'</div>'; return; }
+  const data=d.data||[];
+  if(!data.length){ box.innerHTML='<div class="empty">空目录</div>'; return; }
+  box.innerHTML='';
+  data.forEach(e=>{
+    const row=document.createElement('div'); row.className='fs-row'+(e.is_dir?' dir':'');
+    row.innerHTML=`<span class="ic">${e.is_dir?'📁':'📄'}</span><span class="nm">${e.name}</span><span class="sz">${e.is_dir?'':fmtSize(e.size)}</span><span class="acts"></span>`;
+    if(e.is_dir){ row.onclick=()=>loadFs(FS_PATH.replace(/\/$/,'')+'/'+e.name); }
+    else { const b=document.createElement('button'); b.className='sm'; b.textContent='⬇️ 拉到电脑';
+      b.onclick=ev=>{ ev.stopPropagation(); pullFile(FS_PATH.replace(/\/$/,'')+'/'+e.name); };
+      row.querySelector('.acts').appendChild(b); }
+    box.appendChild(row);
+  });
+}
+async function pullFile(src){
+  const d=await api('/api/fs',{method:'POST',body:JSON.stringify({op:'pull',src})});
+  if(!d.ok){ toast(d.error||'拉取失败','err'); return; }
+  toast('已拉取到电脑：'+d.name);
+  if(d.name) DL_ITEMS.push(d.name);
+  renderDlList();
+}
+function renderDlList(){
+  const box=$('#fsDlList');
+  if(!DL_ITEMS.length){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="hint">已拉取到电脑的文件（点「下载」存到本机浏览器）：</div>';
+  DL_ITEMS.forEach(n=>{
+    const it=document.createElement('div'); it.className='dl-item'; it.innerHTML=`<span>📄 ${n}</span>`;
+    const a=document.createElement('a'); a.href='/api/fs/dl?name='+encodeURIComponent(n); a.textContent='下载'; a.className='sm'; a.style.textDecoration='none';
+    it.appendChild(a); box.appendChild(it);
+  });
+}
+$('#fsUp').onclick=()=>{ const parts=FS_PATH.split('/').filter(Boolean); parts.pop(); loadFs('/'+parts.join('/')||'/'); };
+$('#fsNew').onclick=async()=>{ const nm=prompt('新建文件夹名称：'); if(!nm) return; const p=FS_PATH.replace(/\/$/,'')+'/'+nm; const d=await api('/api/fs',{method:'POST',body:JSON.stringify({op:'mkdir',path:p})}); toast(d.ok?('已创建 '+nm):(d.error||'失败'), d.ok?'ok':'err'); if(d.ok) loadFs(); };
+$('#fsUpload').onclick=()=>$('#fsFile').click();
+$('#fsFile').onchange=async()=>{
+  const f=$('#fsFile').files[0]; if(!f) return;
+  const fd=new FormData(); fd.append('file', f);
+  const r=await fetch('/api/fs/upload',{method:'POST',body:fd}); const up=await r.json();
+  if(!up.ok){ toast(up.error||'上传失败','err'); return; }
+  const dst=FS_PATH.replace(/\/$/,'')+'/'+f.name;
+  const d=await api('/api/fs',{method:'POST',body:JSON.stringify({op:'push',name:up.name,dst})});
+  toast(d.ok?('已推送到手机：'+dst):(d.error||'推送失败'), d.ok?'ok':'err');
+  $('#fsFile').value=''; if(d.ok) loadFs();
+};
+
+// ---------- 无线调试 ----------
+async function loadWireless(){
+  const d=await api('/api/wireless'); const box=$('#wireState');
+  if(!d.ok){ box.innerHTML='<div class="empty">获取失败</div>'; return; }
+  const usb=(d.usb||[]).map(x=>x.serial), tcp=(d.tcp||[]).map(x=>x.serial);
+  box.innerHTML=`<div class="k">USB 已连接</div><div class="v">${usb.length?usb.join(', '):'无'}</div>`+
+    `<div class="k">无线(TCP)已连接</div><div class="v">${tcp.length?tcp.join(', '):'无'}</div>`;
+}
+$('#wEnable').onclick=async()=>{ const port=parseInt($('#wPort').value||'5555',10); const d=await api('/api/wireless',{method:'POST',body:JSON.stringify({op:'enable',port})}); toast(d.ok?(d.message||'已开启'):(d.error||'失败'), d.ok?'ok':'err'); loadWireless(); };
+$('#wConnect').onclick=async()=>{ const ip=$('#wIp').value.trim(), port=$('#wPort').value.trim()||'5555'; if(!ip){toast('请填手机 IP','warn');return;} const d=await api('/api/wireless',{method:'POST',body:JSON.stringify({op:'connect',ip,port})}); toast(d.ok?(d.message||'已连接'):(d.error||'失败'), d.ok?'ok':'err'); loadWireless(); checkStatus(); };
+$('#wDisconnect').onclick=async()=>{ const d=await api('/api/wireless',{method:'POST',body:JSON.stringify({op:'disconnect'})}); toast(d.ok?(d.message||'已断开'):(d.error||'失败'), d.ok?'ok':'err'); loadWireless(); };
+
+// ---------- 监控诊断 ----------
+let MONITOR_ON=false, cpuHist=[];
+async function loadMonitor(){ cpuHist=[]; await loadBattery(); await loadPerms(); await loadPerf(); }
+async function loadBattery(){
+  const d=await api('/api/battery'); const box=$('#batGauge');
+  if(!d.ok){ box.innerHTML='<div class="empty">获取失败</div>'; return; }
+  const b=d.data||{};
+  const statusMap={2:'充电中',3:'放电中',4:'未充电',5:'充满'};
+  const healthMap={2:'良好',3:'过热',4:'已损坏',5:'过热(电压)',6:'过热(温度)'};
+  box.innerHTML=
+    `<div class="box"><div class="l">电量</div><div class="stat-big">${b.level||'-'}%</div><div class="micro">${b.technology||''}</div></div>`+
+    `<div class="box"><div class="l">电池温度</div><div class="stat-big">${b.temp_c||'-'}</div><div class="micro">${statusMap[b.status]||b.status||''}</div></div>`+
+    `<div class="box"><div class="l">电压</div><div class="stat-big">${b.voltage_v||'-'}</div><div class="micro">${healthMap[b.health]||b.health||''}</div></div>`+
+    `<div class="box"><div class="l">其他传感器</div><div class="stat-big" style="font-size:17px">${(b.thermal||[]).join(' / ')||'-'}</div></div>`;
+}
+async function loadPerf(){
+  const d=await api('/api/perf'); if(!d.ok) return; const p=d.data||{};
+  $('#perfNow').innerHTML=
+    `<div class="kv"><div class="k">CPU 占用</div><div class="v">${p.cpu_total!=null?p.cpu_total+'%':'-'} <span class="micro">↓${p.net_rx_kbps!=null?p.net_rx_kbps:'-'} KB/s · ↑${p.net_tx_kbps!=null?p.net_tx_kbps:'-'} KB/s</span></div>`+
+    `<div class="k">内存</div><div class="v">${p.mem_used_mb!=null?p.mem_used_mb+' / '+p.mem_total_mb+' MB ('+p.mem_pct+'%)':'-'}</div></div>`;
+  if(p.cpu_top&&p.cpu_top.length){ $('#perfNow').innerHTML+='<div class="micro" style="margin-top:6px">占用最高：'+p.cpu_top.map(t=>t.name.split('/')[0].split(' ')[0]).join('、')+'</div>'; }
+  if(p.cpu_total!=null){ cpuHist.push(p.cpu_total); if(cpuHist.length>40) cpuHist.shift(); drawCpuChart(); }
+}
+function drawCpuChart(){
+  const c=$('#cpuChart'); if(!c) return; const ctx=c.getContext('2d');
+  const w=c.width=600, h=c.height=160; ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='#e3e8f0'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){ const y=h*i/4; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  if(cpuHist.length<2) return;
+  ctx.strokeStyle='#2f6bff'; ctx.lineWidth=2; ctx.beginPath();
+  cpuHist.forEach((v,i)=>{ const x=w*i/(cpuHist.length-1), y=h-Math.min(100,v)/100*h; i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.stroke(); ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fillStyle='rgba(47,107,255,.12)'; ctx.fill();
+}
+async function loadPerms(){
+  const d=await api('/api/perms'); const body=$('#permBody');
+  if(!d.ok){ body.innerHTML='<tr><td colspan="2" class="empty">'+(d.error||'失败')+'</td></tr>'; return; }
+  const data=d.data||[]; $('#permCount').textContent='共 '+data.length+' 个应用含危险权限';
+  if(!data.length){ body.innerHTML='<tr><td colspan="2" class="empty">未发现危险权限</td></tr>'; return; }
+  body.innerHTML='';
+  data.forEach(x=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td class="pkg">${x.name||x.pkg}</td><td></td>`;
+    const td=tr.querySelector('td:last-child'); (x.perms||[]).forEach(p=>{ const s=document.createElement('span'); s.className='pill'; s.textContent=p.replace('android.permission.',''); td.appendChild(s); });
+    body.appendChild(tr); });
+}
+async function monitorTick(){ if(!MONITOR_ON) return; await loadBattery(); await loadPerf(); }
+$('#permScan').onclick=loadPerms;
+$('#btnReport').onclick=async()=>{ const d=await api('/api/report'); if(!d.ok){ toast(d.error||'生成失败','err'); return; } renderReport(d.data||{}); };
+$('#btnReportPrint').onclick=()=>{ const w=window.open('','_blank'); if(!w) return; w.document.write('<pre style="font-family:monospace;padding:20px">'+document.getElementById('reportBody').innerText+'</pre>'); w.document.close(); w.print(); };
+function renderReport(r){
+  const i=r.info||{}, b=r.battery||{}, s=r.storage||{}, tw=r.tweaks||{};
+  const twStr=Object.entries(tw).filter(([k,v])=>v!=null&&v!==''&&v!=='null').map(([k,v])=>`${k}:${v}`).join('、')||'（未记录）';
+  $('#reportTime').textContent='生成于 '+(r.generated_at||'');
+  $('#reportBody').innerHTML=
+    `<div class="kv"><div class="k">型号</div><div class="v">${i.model||'-'} (${i.brand||'-'})</div>`+
+    `<div class="k">Android</div><div class="v">${i.android||'-'}</div>`+
+    `<div class="k">电池</div><div class="v">${b.level||'-'}% · ${b.temp_c||'-'} · ${b.voltage_v||'-'}</div>`+
+    `<div class="k">存储</div><div class="v">${s.used||'-'} / ${s.size||'-'}（可用 ${s.avail||'-'}， ${s.pct||''}）</div>`+
+    `<div class="k">应用</div><div class="v">用户 ${r.user_apps||0} · 系统 ${r.sys_apps||0}</div>`+
+    `<div class="k">已做调优</div><div class="v">${twStr}</div></div>`+
+    `<div class="sub">占用空间最大的目录</div><div class="item-list">`+ (r.big_dirs||[]).map(d=>`<div class="item"><span class="nm">${d.path}</span><span class="meta">${d.size}</span></div>`).join('') +`</div>`;
+}
+
+// ---------- 自动化进阶 ----------
+let MACRO_STEPS=[];
+function macroAddStep(){
+  const act=$('#macroAct').value;
+  const p1=$('#macroP1').value.trim(), p2=$('#macroP2').value.trim(), p3=$('#macroP3').value.trim(), p4=$('#macroP4').value.trim();
+  const st={action:act, delay:0.3};
+  if(act==='input_tap'){ st.x=p1; st.y=p2; }
+  else if(act==='input_swipe'){ st.x1=p1; st.y1=p2; st.x2=p3; st.y2=p4; }
+  else if(act==='input_text'){ st.text=p1; }
+  else if(act==='input_key'){ st.key=p1; }
+  MACRO_STEPS.push(st); renderMacroPreview();
+}
+function renderMacroPreview(){
+  if(!MACRO_STEPS.length){ $('#macroPreview').innerHTML='<span class="hint">尚未添加步骤</span>'; return; }
+  $('#macroPreview').innerHTML='<b>步骤预览：</b><div class="steps">'+MACRO_STEPS.map((s,i)=>`${i+1}. ${JSON.stringify(s)}`).join('\n')+'</div>';
+}
+async function loadAdvAuto(){ await loadMacros(); await loadSchedules(); await loadPresets(); }
+async function loadMacros(){
+  const d=await api('/api/macro'); const box=$('#macroList');
+  if(!d.ok){ box.innerHTML='<span class="hint">获取失败</span>'; return; }
+  const data=d.data||[]; box.innerHTML='';
+  data.forEach(m=>{
+    const b=document.createElement('button'); b.className='sm'; b.innerHTML='▶ '+m.name;
+    b.onclick=async()=>{ const r=await api('/api/macro/run',{method:'POST',body:JSON.stringify({name:m.name})}); if(r.ok&&r.log){ const ok=r.log.filter(x=>x.ok).length; toast('宏「'+m.name+'」完成：'+ok+'/'+r.log.length+' 步成功'); } };
+    const del=document.createElement('button'); del.className='sm ghost'; del.textContent='🗑';
+    del.onclick=async()=>{ if(confirm('删除宏「'+m.name+'」？')){ await api('/api/macro/delete',{method:'POST',body:JSON.stringify({name:m.name})}); loadMacros(); } };
+    const wrap=document.createElement('span'); wrap.style.marginRight='4px'; wrap.appendChild(b); wrap.appendChild(del); box.appendChild(wrap);
+  });
+}
+async function loadSchedules(){
+  const d=await api('/api/schedule'); const box=$('#schList');
+  if(!d.ok){ box.innerHTML='<div class="empty">获取失败</div>'; return; }
+  const data=d.data||[];
+  if(!data.length){ box.innerHTML='<div class="empty">暂无定时任务</div>'; return; }
+  box.innerHTML='';
+  data.forEach(s=>{ const it=document.createElement('div'); it.className='item';
+    const a=s.action||{}; const args=Object.entries(a).filter(([k])=>k!=='action').map(([k,v])=>v).join(' ');
+    it.innerHTML=`<span class="nm">${s.name||'(未命名)'}</span><span class="meta">${s.type==='daily'?('每天 '+s.time):('每隔 '+s.minutes+' 分钟')} · ${a.action||'-'} ${args}</span>`;
+    const del=document.createElement('button'); del.className='sm ghost'; del.textContent='删除';
+    del.onclick=async()=>{ await api('/api/schedule/delete',{method:'POST',body:JSON.stringify({name:s.name})}); loadSchedules(); };
+    it.appendChild(del); box.appendChild(it); });
+}
+async function loadPresets(){
+  const d=await api('/api/preset'); const box=$('#presetList');
+  if(!d.ok){ box.innerHTML='<div class="empty">获取失败</div>'; return; }
+  const data=d.data||{};
+  const all=[...(data.builtin||[]).map(x=>({name:x.name,steps:x.steps,user:false})), ...(data.user||[]).map(x=>({name:x.name,steps:x.steps,user:true}))];
+  box.innerHTML='';
+  all.forEach(p=>{ const it=document.createElement('div'); it.className='item';
+    it.innerHTML=`<span class="nm">${p.name}</span><span class="meta">${p.steps.length} 步 · ${p.user?'自定义':'内置'}</span>`;
+    const apply=document.createElement('button'); apply.className='sm primary'; apply.textContent='套用';
+    apply.onclick=async()=>{ if(confirm('确定套用方案「'+p.name+'」？将依次执行 '+p.steps.length+' 项设置。')){ const r=await api('/api/preset/apply',{method:'POST',body:JSON.stringify({steps:p.steps})}); if(r.ok&&r.log){ const ok=r.log.filter(x=>x.ok).length; toast('方案「'+p.name+'」已套用：'+ok+'/'+r.log.length+' 成功'); } } };
+    const exp=document.createElement('button'); exp.className='sm'; exp.textContent='导出';
+    exp.onclick=()=>{ const blob=new Blob([JSON.stringify(p.steps,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=p.name+'.json'; a.click(); };
+    it.appendChild(apply); it.appendChild(exp);
+    if(p.user){ const del=document.createElement('button'); del.className='sm ghost'; del.textContent='删除'; del.onclick=async()=>{ await api('/api/preset/delete',{method:'POST',body:JSON.stringify({name:p.name})}); loadPresets(); }; it.appendChild(del); }
+    box.appendChild(it); });
+  const sel=$('#presetBase'); sel.innerHTML='<option value="">（空白）</option>'+all.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+}
+$('#macroAct').onchange=()=>{ const a=$('#macroAct').value; const ph={input_tap:['x','y','',''],input_swipe:['x1','y1','x2','y2'],input_text:['文本','','',''],input_key:['KEYCODE_HOME','','','']}[a]||['','','','']; $('#macroP1').placeholder=ph[0]; $('#macroP2').placeholder=ph[1]; $('#macroP3').placeholder=ph[2]; $('#macroP4').placeholder=ph[3]; };
+$('#macroAdd').onclick=macroAddStep;
+$('#macroSave').onclick=async()=>{ const nm=$('#macroName').value.trim(); if(!nm){toast('请输入宏名称','warn');return;} if(!MACRO_STEPS.length){toast('请先添加步骤','warn');return;} const d=await api('/api/macro/save',{method:'POST',body:JSON.stringify({name:nm,steps:MACRO_STEPS,desc:''})}); toast(d.ok?'已保存宏':'失败', d.ok?'ok':'err'); if(d.ok){ MACRO_STEPS=[]; renderMacroPreview(); loadMacros(); } };
+$('#schAdd').onclick=async()=>{ const name=$('#schName').value.trim(); if(!name){toast('请输入任务名','warn');return;} const type=$('#schType').value, action=$('#schAction').value, arg=$('#schArg').value.trim().split(/\s+/); let a={action}; if(action==='input_tap'){ a.x=arg[0]||''; a.y=arg[1]||''; } else if(action==='input_swipe'){ a.x1=arg[0]||''; a.y1=arg[1]||''; a.x2=arg[2]||''; a.y2=arg[3]||''; a.dur=300; } else if(action==='input_text'){ a.text=arg.join(' '); } const entry={name,type,action:a}; if(type==='daily') entry.time=$('#schTime').value.trim()||'00:00'; else entry.minutes=parseInt($('#schTime').value.trim()||'60',10); const d=await api('/api/schedule/add',{method:'POST',body:JSON.stringify(entry)}); toast(d.ok?'已添加定时任务':'失败', d.ok?'ok':'err'); if(d.ok) loadSchedules(); };
+$('#presetSave').onclick=async()=>{ const nm=$('#presetName').value.trim(); if(!nm){toast('请输入方案名','warn');return;} const base=$('#presetBase').value; let steps=[]; if(base){ const d=await api('/api/preset'); const data=d.data||{}; const found=[...(data.builtin||[]),...(data.user||[])].find(x=>x.name===base); if(found) steps=found.steps; } const r=await api('/api/preset/save',{method:'POST',body:JSON.stringify({name:nm,steps})}); toast(r.ok?'已保存方案':'失败', r.ok?'ok':'err'); if(r.ok) loadPresets(); };
+$('#presetExport').onclick=async()=>{ const base=$('#presetBase').value; if(!base){toast('请先选择要导出的基础方案','warn');return;} const d=await api('/api/preset'); const data=d.data||{}; const found=[...(data.builtin||[]),...(data.user||[])].find(x=>x.name===base); if(!found){toast('未找到','err');return;} const blob=new Blob([JSON.stringify(found.steps,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=base+'.json'; a.click(); };
+
+checkStatus();
+setInterval(()=>{ if(!STATE.connected) checkStatus(); }, 5000);
+setInterval(async()=>{ if(MONITOR_ON && STATE.connected){ try{ await monitorTick(); }catch(e){} } }, 2000);
+</script>
+</body>
+</html>
